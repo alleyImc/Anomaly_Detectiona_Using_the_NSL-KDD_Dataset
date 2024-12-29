@@ -4,18 +4,14 @@ import pandas as pd
 from scipy import stats
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.preprocessing import OneHotEncoder,StandardScaler
+from sklearn.preprocessing import LabelEncoder,StandardScaler
 
 
-## Function to load ARFF files and convert byte columns to string
+# Function to load ARFF files
 def load_arff(file_path):
     data = arff.loadarff(file_path)
     df = pd.DataFrame(data[0])
-    # Convert byte columns to string
-    for col in df.select_dtypes(['object']).columns:
-        df[col] = df[col].str.decode('utf-8')
     return df
-
 
 # Load the datasets
 train_full = load_arff('datasets/KDDTrain+.arff')
@@ -36,15 +32,15 @@ class_percentages = {}
 for name, df in datasets.items():
     class_counts = df['class'].value_counts(normalize=True) * 100
     print(f"{name}:")
-    print(f"- Normal: {class_counts.get('normal', 0):.2f}%")
-    print(f"- Anomaly: {class_counts.get('anomaly', 0):.2f}%\n")
+    print(f"- Normal: {class_counts.get(b'normal', 0):.2f}%")
+    print(f"- Anomaly: {class_counts.get(b'anomaly', 0):.2f}%\n")
     class_percentages[name] = class_counts
 
 # Create a DataFrame for visualization
 percentage_df = pd.DataFrame({
     name: {
-        'Normal': class_percentages[name].get('normal', 0),
-        'Anomaly': class_percentages[name].get('anomaly', 0)
+        'Normal': class_percentages[name].get(b'normal', 0),
+        'Anomaly': class_percentages[name].get(b'anomaly', 0)
     } for name in datasets.keys()
 }).T
 
@@ -80,6 +76,9 @@ def check_missing_values(dataset_name, df):
 
 # Check missing value
 check_missing_values("KDDTrain+_20Percent", train_20)
+check_missing_values("KDDTrain", train_20)
+check_missing_values("KDDTest", train_20)
+check_missing_values("KDDTest-21", train_20)
 
 
 ################################################################################################
@@ -154,9 +153,46 @@ plt.show()
 print("------------------------------------------------\n")
 ################################################################################################
 
+# Columns to encode
+categorical_columns = ['protocol_type', 'service', 'flag']
+target_column = 'class'
+
+# Apply Label Encoding categorical columns
+def apply_label_encoding(df, categorical_columns):
+    label_encoder = LabelEncoder()
+
+    for column in categorical_columns:
+        df[column] = label_encoder.fit_transform(df[column])
+
+    return df
 
 
-for name, df in encoded_datasets.items():
-    print(f"Columns in {name} encoded dataset:")
-    print(df.columns, end="\n\n")
+# Apply Label Encoding target column
+def apply_target_label_encoding(df, target_column):
+    label_encoder = LabelEncoder()
+    df[target_column] = label_encoder.fit_transform(df[target_column])
+    return df
 
+
+# Apply Label Encoding on categorical columns
+train_full_encoded = apply_label_encoding(train_full, categorical_columns)
+train_20_encoded = apply_label_encoding(train_20, categorical_columns)
+test_full_encoded = apply_label_encoding(test_full, categorical_columns)
+test_21_encoded = apply_label_encoding(test_21, categorical_columns)
+
+# Apply Label Encoding on target column 'class'
+train_full_encoded = apply_target_label_encoding(train_full_encoded, target_column)
+train_20_encoded = apply_target_label_encoding(train_20_encoded, target_column)
+
+# Check the updated data
+print(f"Test 21 Encoded:\n{test_21_encoded.head()}\n")
+print(f"Train 20 Encoded:\n{train_20_encoded.head()}\n")
+print(f"Test Full Encoded:\n{test_full_encoded.head()}\n")
+print(f"Train Full Encoded:\n{train_full_encoded.head()}\n")
+
+# Count the number of columns in the dataset
+num_columns = len(train_full_encoded.columns)
+print(f"Number of columns: {num_columns}")
+################################################################################################
+print("------------------------------------------------\n")
+################################################################################################
